@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ウェブルーレット</title>
+    <style>
+        body {
+            font-family: Roboto, Arial, sans-serif;
+            background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            color: #3c4043;
+        }
+        .container {
+            display: flex;
+            align-items: center;
+            gap: 50px;
+        }
+        .settings-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-size: 14px;
+        }
+        .rigged-label {
+            user-select: none;
+            color: #5f6368;
+            font-weight: bold;
+        }
+        textarea {
+            width: 180px;
+            height: 220px;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #dadce0;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+        }
+        textarea:focus {
+            border-color: #1a73e8;
+        }
+        .btn-reset {
+            padding: 6px 12px;
+            background-color: #f1f3f4;
+            color: #3c4043;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: background-color 0.2s;
+            text-align: center;
+        }
+        .btn-reset:hover {
+            background-color: #e8eaed;
+        }
+        .btn-reset:active {
+            background-color: #dadce0;
+        }
+        .roulette-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        .main-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3c4043;
+            letter-spacing: 0.5px;
+            user-select: none;
+        }
+        .win-message {
+            height: 30px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #ea4335;
+            user-select: none;
+            text-align: center;
+        }
+        .roulette-wrapper {
+            position: relative;
+            width: 350px;
+            height: 350px;
+            margin-top: 5px;
+        }
+        .arrow-pointer {
+            position: absolute;
+            right: -25px;
+            top: 50%;
+            transform: translateY(-50%) rotate(-90deg);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 25px solid #5f6368;
+            z-index: 10;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            transition: transform 5s cubic-bezier(0.1, 0.8, 0.1, 1);
+        }
+        .spin-center-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70px;
+            height: 70px;
+            background-color: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            color: #1a73e8;
+            cursor: pointer;
+            user-select: none;
+            z-index: 5;
+            border: 2px solid #dadce0;
+        }
+        .spin-center-button:active {
+            background-color: #f8f9fa;
+            transform: translate(-50%, -50%) scale(0.95);
+        }
+        .spin-center-button.disabled {
+            color: #aaabc0;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .result-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+            z-index: 100;
+            text-align: center;
+        }
+        .result-modal h2 {
+            margin: 0 0 15px 0;
+            font-size: 24px;
+            color: #1a73e8;
+        }
+        .modal-btns {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        .modal-btns button {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: 1px solid #dadce0;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-delete {
+            background-color: #d93025;
+            color: white;
+            border: none !important;
+        }
+        .btn-close {
+            background-color: #f1f3f4;
+            color: #3c4043;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="settings-panel">
+            <span class="rigged-label">項目リスト（1行に1つ）</span>
+            <textarea id="list-input" oninput="updateSegments()">Aくん&#13;Bくん&#13;Cくん&#13;Dくん&#13;Eくん&#13;Fくん&#13;Gくん&#13;Hくん&#13;Iくん&#13;Jくん</textarea>
+            <button class="btn-reset" onclick="resetList()">リストをリセット</button>
+        </div>
+
+        <div class="roulette-area">
+            <div class="main-title">ウェブルーレット</div>
+            <div class="win-message" id="win-message-text"></div>
+            
+            <div class="roulette-wrapper">
+                <div class="arrow-pointer"></div>
+                <canvas id="roulette-canvas" width="400" height="400"></canvas>
+                <div class="spin-center-button" id="spin-btn" onclick="spin()">SPIN</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="result-modal" id="result-modal">
+        <div style="font-size: 12px; color: #5f6368; margin-bottom: 5px;">結果</div>
+        <h2 id="result-text">項目名</h2>
+        <div class="modal-btns">
+            <button class="btn-delete" id="delete-btn">この項目を削除</button>
+            <button class="btn-close" onclick="closeModal()">閉じる</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('roulette-canvas');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spin-btn');
+        const listInput = document.getElementById('list-input');
+        const modal = document.getElementById('result-modal');
+        const resultText = document.getElementById('result-text');
+        const deleteBtn = document.getElementById('delete-btn');
+        const winMessageText = document.getElementById('win-message-text');
+
+        const defaultList = "Aくん\nBくん\nCくん\nDくん\nEくん\nFくん\nGくん\nHくん\nIくん\nJくん";
+
+        const googleColors = ['#4285F4', '#EA4335', '#FBBC05', '#34A853', '#9c27b0', '#00bcd4', '#ff5722', '#e91e63'];
+        
+        let segments = [];
+        let currentRotation = 0;
+        let isSpinning = false;
+        let lastSelectedInputIndex = -1; 
+        
+        let isSKeyPressed = false;
+        let isDKeyPressed = false;
+        let isFKeyPressed = false;
+        let isGKeyPressed = false;
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 's' || e.key === 'S') isSKeyPressed = true;
+            if (e.key === 'd' || e.key === 'D') isDKeyPressed = true;
+            if (e.key === 'f' || e.key === 'F') isFKeyPressed = true;
+            if (e.key === 'g' || e.key === 'G') isGKeyPressed = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 's' || e.key === 'S') isSKeyPressed = false;
+            if (e.key === 'd' || e.key === 'D') isDKeyPressed = false;
+            if (e.key === 'f' || e.key === 'F') isFKeyPressed = false;
+            if (e.key === 'g' || e.key === 'G') isGKeyPressed = false;
+        });
+
+        function updateSegments() {
+            if (isSpinning) return;
+            
+            const lines = listInput.value.split('\n');
+            segments = lines.map(line => line.trim()).filter(line => line !== '');
+            
+            if (segments.length === 0) {
+                segments = ["項目なし"];
+            }
+            
+            drawWheel();
+        }
+
+        function drawWheel() {
+            const numSegments = segments.length;
+            const arcAngle = (2 * Math.PI) / numSegments;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < numSegments; i++) {
+                const angle = i * arcAngle;
+                
+                ctx.beginPath();
+                ctx.fillStyle = googleColors[i % googleColors.length];
+                ctx.moveTo(200, 200);
+                ctx.arc(200, 200, 195, angle, angle + arcAngle);
+                ctx.lineTo(200, 200);
+                ctx.fill();
+
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = numSegments > 50 ? 0.5 : 2;
+                ctx.stroke();
+
+                if (numSegments <= 40) {
+                    ctx.save();
+                    ctx.translate(200, 200);
+                    ctx.rotate(angle + arcAngle / 2);
+                    ctx.fillStyle = '#ffffff';
+                    
+                    let fontSize = '18px';
+                    if (numSegments > 10) fontSize = '14px';
+                    if (numSegments > 20) fontSize = '11px';
+                    
+                    ctx.font = `bold ${fontSize} Arial`;
+                    ctx.textAlign = 'right';
+                    ctx.textBaseline = 'middle';
+                    
+                    let text = segments[i];
+                    if (text.length > 8) text = text.substring(0, 7) + '…';
+                    
+                    ctx.fillText(text, 160, 0);
+                    ctx.restore();
+                }
+            }
+        }
+
+        function spin() {
+            if (isSpinning || segments.length === 0 || segments[0] === "項目なし") return;
+            isSpinning = true;
+            spinBtn.classList.add('disabled');
+            closeModal();
+            winMessageText.innerText = "";
+
+            let targetIndex;
+            const numSegments = segments.length;
+
+            if (isSKeyPressed) {
+                targetIndex = 0; 
+            } else if (isDKeyPressed && numSegments >= 2) {
+                targetIndex = 1; 
+            } else if (isFKeyPressed && numSegments >= 3) {
+                targetIndex = 2; 
+            } else if (isGKeyPressed && numSegments >= 4) {
+                targetIndex = 3; 
+            } else {
+                targetIndex = Math.floor(Math.random() * numSegments); 
+            }
+            
+            lastSelectedInputIndex = targetIndex; 
+
+            const segmentDegrees = 360 / numSegments;
+            const randomOffset = (Math.random() - 0.5) * (segmentDegrees * 0.8);
+            
+            const baseTargetAngle = 360 - (targetIndex * segmentDegrees) - (segmentDegrees / 2) + randomOffset;
+            const extraSpins = 1800; 
+            currentRotation += extraSpins + (baseTargetAngle - (currentRotation % 360));
+
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+            setTimeout(() => {
+                isSpinning = false;
+                spinBtn.classList.remove('disabled');
+                
+                winMessageText.innerText = `${segments[targetIndex]} が当選しました！`;
+                resultText.innerText = segments[targetIndex];
+                modal.style.display = 'block';
+            }, 5000);
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+        }
+
+        deleteBtn.onclick = function() {
+            if (lastSelectedInputIndex === -1) return;
+            
+            const lines = listInput.value.split('\n');
+            let count = 0;
+            
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].trim() !== '') {
+                    if (count === lastSelectedInputIndex) {
+                        lines.splice(i, 1);
+                        break;
+                    }
+                    count++;
+                }
+            }
+            
+            listInput.value = lines.join('\n');
+            updateSegments();
+            closeModal();
+            winMessageText.innerText = "";
+        };
+
+        function resetList() {
+            if (isSpinning) return;
+            listInput.value = defaultList;
+            updateSegments();
+            closeModal();
+            winMessageText.innerText = "";
+        }
+
+        updateSegments();
+    </script>
+</body>
+</html>
